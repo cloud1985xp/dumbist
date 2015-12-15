@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/dumbist/cli'
+
+begin
+  cli = Dumbist::CLI.instance
+  cli.parse
+  cli.run
+rescue => e
+  puts e.message
+  puts e.backtrace
+end

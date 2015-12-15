@@ -1,0 +1,91 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+
+class DumbistCtl
+  DEFAULT_TIMEOUT = 20
+
+  attr_reader :stage, :pidfile, :timeout
+
+  def self.print_usage
+    puts
+    puts "Usage: #{File.basename($0)} <command> <pidfile> <timeout>"
+    puts " where <command> is either 'quiet', 'stop' or 'shutdown"
+    puts "       <pidfile> is path to pidfile"
+    puts "       <timeout> is number of seconds to wait till Dumbist exits (default: #{DumbistCtl::DEFAULT_TIMEOUT})"
+    puts
+  end
+
+  def initialize(stage, pidfile, timeout)
+    @pidfile = pidfile
+    @timeout = timeout
+
+    done('No pidfile given', :error) if !pidfile
+    done("Pidfile #{pidfile} does not exist", :warn) if !File.exist?(pidfile)
+    done('Invalid pidfile content', :error) if pid == 0
+
+    fetch_process
+
+    begin
+      send(stage)
+    rescue NoMethodError
+      done 'Invalid control command', :error
+    end
+  end
+
+  def fetch_process
+    Process.getpgid(pid)
+  rescue Errno::ESRCH
+    done "Process doesn't exist", :error
+  end
+
+  def done(msg, error = nil)
+    puts msg
+    exit(exit_signal(error))
+  end
+
+  def exit_signal(error)
+    error == :error ? 1 : 0
+  end
+
+  def pid
+    @pid ||= File.read(pidfile).to_i
+  end
+
+  def quiet
+    `kill -USR1 #{pid}`
+  end
+
+  def stop
+    `kill -TERM #{pid}`
+    timeout.times do
+      begin
+        Process.getpgid(pid)
+      rescue Errno::ESRCH
+        FileUtils.rm_f pidfile
+        done 'Dumbist shutdown gracefully.'
+      end
+      sleep(1)
+    end
+
+    `kill -9 #{pid}`
+    FileUtils.rm_f pidfile
+    done 'Dumbist shutdown forcefully.'
+  end
+
+  def shutdown
+    quiet
+    stop
+  end
+end
+
+if ARGV.length < 2
+  DumbistCtl.print_usage
+else
+  stage = ARGV[0]
+  pidfile = ARGV[1]
+  timeout = ARGV[2].to_i
+  timeout = DumbistCtl::DEFAULT_TIMEOUT if timeout == 0
+
+  DumbistCtl.new(stage, pidfile, timeout)
+end

@@ -21,16 +21,16 @@ end
 
 namespace :dumbist do
 
-  def pid_file
+  def dumbist_pid_file
     fetch(:dumbist_pid)
   end
 
-  def pid_process_exists?
-    pid_file_exists? && test(*("kill -0 $( cat #{pid_file} )").split(' '))
+  def dumbist_pid_process_exists?()
+    dumbist_pid_file_exists? && test(*("kill -0 $( cat #{dumbist_pid_file} )").split(' '))
   end
 
-  def pid_file_exists?
-    test(*("[ -f #{pid_file} ]").split(' '))
+  def dumbist_pid_file_exists?
+    test(*("[ -f #{dumbist_pid_file} ]").split(' '))
   end
 
   def start_dumbist
@@ -50,7 +50,7 @@ namespace :dumbist do
   end
 
   def stop_dumbist
-    execute :bundle, :exec, :dumbist_ctl, 'stop', pid_file, fetch(:dumbist_timeout)
+    execute :bundle, :exec, :dumbist_ctl, 'stop', dumbist_pid_file, fetch(:dumbist_timeout)
   end
 
   task :add_default_hooks do
@@ -63,7 +63,7 @@ namespace :dumbist do
   task :start do
     on roles fetch(:dumbist_role) do
       within release_path do
-        start_dumbist unless pid_process_exists?
+        start_dumbist unless dumbist_pid_process_exists?
       end
     end
   end
@@ -73,7 +73,7 @@ namespace :dumbist do
     on roles fetch(:dumbist_role) do
       if test("[ -d #{release_path} ]")
         within release_path do
-          stop_dumbist if pid_process_exists?
+          stop_dumbist if dumbist_pid_process_exists?
         end
       end
     end
